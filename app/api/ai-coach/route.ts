@@ -417,64 +417,60 @@ function getFinPilotFallback(
 ): string {
     const lowerQuestion = question.toLowerCase();
 
-    const transactions = Array.isArray(
-        context?.transactions
-    )
-        ? context.transactions
-        : [];
-
-    const budgets = Array.isArray(context?.budgets)
-        ? context.budgets
-        : [];
+    /*
+     * The frontend sends a pre-computed FinancialContext object
+     * (income, expenses, balance, goals[], etc.).
+     * Raw transaction/budget arrays are NOT present — use the
+     * computed fields directly.
+     */
+    const totalIncome = Number(context?.income) || 0;
+    const totalExpense = Number(context?.expenses) || 0;
+    const balance = Number(context?.balance) ?? (totalIncome - totalExpense);
 
     const goals = Array.isArray(context?.goals)
         ? context.goals
         : [];
 
-    let totalIncome = 0;
-    let totalExpense = 0;
+    const budgets: unknown[] = []; // budgets are not passed as an array; use totalBudget instead
+    const totalBudget = Number(context?.totalBudget) || 0;
+    const budgetUsed = Number(context?.budgetUsed) || 0;
+    const budgetRemaining = Number(context?.budgetRemaining) || 0;
+    const budgetUsagePercent = Number(context?.budgetUsagePercent) || 0;
 
-    for (const transaction of transactions) {
-        const amount =
-            Number(transaction?.amount) || 0;
+    const categorySpending: Record<string, number> =
+        context?.categorySpending && typeof context.categorySpending === "object"
+            ? context.categorySpending
+            : {};
 
-        const type = String(
-            transaction?.type ||
-            transaction?.transaction_type ||
-            ""
-        ).toLowerCase();
+    // Build a top-spending-categories summary when available
+    const categoryLines = Object.entries(categorySpending)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([cat, amt]) => `  • ${cat}: ₹${Number(amt).toFixed(2)}`)
+        .join("\n");
 
-        if (
-            type === "income" ||
-            type === "credit" ||
-            type === "deposit"
-        ) {
-            totalIncome += amount;
-        } else {
-            totalExpense += amount;
-        }
-    }
-
-    const balance =
-        totalIncome - totalExpense;
+    const month = context?.month ? `for ${context.month}` : "";
 
     if (
         lowerQuestion.includes("budget") &&
-        budgets.length > 0
+        totalBudget > 0
     ) {
         return `
-You currently have ${budgets.length} budget${budgets.length === 1 ? "" : "s"
-            } configured.
+Here is your budget summary ${month}:
 
-Review each budget against your recent spending and focus first on categories where spending is closest to or above the planned limit.
+• Total budget: ₹${totalBudget.toFixed(2)}
+• Spent so far: ₹${budgetUsed.toFixed(2)}
+• Remaining: ₹${budgetRemaining.toFixed(2)}
+• Usage: ${budgetUsagePercent.toFixed(1)}%
 
-Your current transaction data shows approximately:
+${budgetRemaining < 0
+                ? "⚠️ You have exceeded your total budget. Consider reducing discretionary spending."
+                : budgetUsagePercent > 80
+                    ? "You are close to your budget limit. Monitor spending carefully for the rest of the month."
+                    : "You are within budget. Keep up the good work."
+            }
 
-• Income: ₹${totalIncome.toFixed(2)}
-• Expenses: ₹${totalExpense.toFixed(2)}
-• Difference: ₹${balance.toFixed(2)}
-
-Consider reducing discretionary spending in categories that are consistently exceeding their limits.
+${categoryLines ? `Top spending categories:\n${categoryLines}` : ""}
 `.trim();
     }
 
@@ -482,19 +478,23 @@ Consider reducing discretionary spending in categories that are consistently exc
         lowerQuestion.includes("goal") &&
         goals.length > 0
     ) {
+        const goalLines = goals
+            .slice(0, 5)
+            .map(
+                (g: any) =>
+                    `  • ${g.name}: ₹${Number(g.saved).toFixed(2)} saved of ₹${Number(g.target).toFixed(2)} (${Number(g.progress).toFixed(1)}%)`
+            )
+            .join("\n");
+
         return `
-You currently have ${goals.length} financial goal${goals.length === 1 ? "" : "s"
-            }.
+You have ${goals.length} financial goal${goals.length === 1 ? "" : "s"} ${month}:
 
-A good approach is to prioritize goals by urgency and importance, then assign a realistic recurring amount toward each goal.
+${goalLines}
 
-Based on the available transaction data:
-
-• Income: ₹${totalIncome.toFixed(2)}
-• Expenses: ₹${totalExpense.toFixed(2)}
-• Difference: ₹${balance.toFixed(2)}
-
-If the difference is positive, consider directing part of it toward your highest-priority goal.
+${balance > 0
+                ? `You currently have a positive balance of ₹${balance.toFixed(2)}. Consider directing part of it toward your highest-priority goal.`
+                : "Your expenses currently exceed your income this month. Focus on reducing costs before increasing goal contributions."
+            }
 `.trim();
     }
 
@@ -503,28 +503,34 @@ If the difference is positive, consider directing part of it toward your highest
         lowerQuestion.includes("save")
     ) {
         return `
-Based on the available transaction data:
+Here is your savings picture ${month}:
 
 • Income: ₹${totalIncome.toFixed(2)}
 • Expenses: ₹${totalExpense.toFixed(2)}
-• Difference: ₹${balance.toFixed(2)}
+• Net balance: ₹${balance.toFixed(2)}
 
-A practical starting point is to review your largest recurring expenses and identify categories where you can reduce spending without affecting essential needs.
+${balance > 0
+                ? `You are saving ₹${balance.toFixed(2)} this month (${totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(1) : 0}% of income). A good target is 20% of income.`
+                : "Your expenses are exceeding your income this month. Review the largest expense categories and look for areas to cut back."
+            }
 
-Try setting a specific monthly savings target and treating it as a planned expense.
+${categoryLines ? `Top spending categories:\n${categoryLines}` : ""}
 `.trim();
     }
 
+    // Overview / general question
     return `
-I can help you analyze your FinPilot financial data.
-
-Based on the currently available transaction information:
+Here is your financial overview ${month}:
 
 • Income: ₹${totalIncome.toFixed(2)}
 • Expenses: ₹${totalExpense.toFixed(2)}
-• Difference: ₹${balance.toFixed(2)}
+• Net balance: ₹${balance.toFixed(2)}
+${totalBudget > 0 ? `• Budget used: ${budgetUsagePercent.toFixed(1)}% of ₹${totalBudget.toFixed(2)}` : ""}
+${goals.length > 0 ? `• Active savings goals: ${goals.length}` : ""}
 
-For a more detailed answer, ask me about your spending, budgets, savings goals, or financial habits.
+${categoryLines ? `Top spending categories:\n${categoryLines}` : "No expense transactions recorded this month yet."}
+
+Ask me about your spending habits, budgets, savings goals, or financial forecast for more details.
 `.trim();
 }
 
