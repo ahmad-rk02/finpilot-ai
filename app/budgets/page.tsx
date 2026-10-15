@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
     AlertTriangle,
@@ -25,6 +25,7 @@ import {
 
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/app/components/AuthGuard";
+import { useRealtimeSync } from "@/lib/useRealtimeSync";
 
 type Budget = {
     id: string;
@@ -138,7 +139,7 @@ function BudgetsContent() {
        LOAD DATA
     ===================================================== */
 
-    async function loadData(activeUserId = userId) {
+    const loadData = useCallback(async (activeUserId = userId) => {
         if (!activeUserId) return;
 
         setLoading(true);
@@ -203,13 +204,20 @@ function BudgetsContent() {
         } finally {
             setLoading(false);
         }
-    }
+    }, [userId, currentMonth]);
 
     useEffect(() => {
         if (userId) {
             loadData(userId);
         }
-    }, [userId, currentMonth]);
+    }, [userId, currentMonth, loadData]);
+
+    // Keep in sync across tabs
+    useRealtimeSync({
+        userId,
+        tables: ["budgets", "transactions"],
+        onRefresh: loadData,
+    });
 
     /* =====================================================
        SPENDING BY CATEGORY
@@ -566,8 +574,8 @@ function BudgetsContent() {
                                     }
                                 )}`}
                                 subtitle={`${budgets.length} active budget${budgets.length !== 1
-                                        ? "s"
-                                        : ""
+                                    ? "s"
+                                    : ""
                                     }`}
                                 icon={
                                     <Target
@@ -642,10 +650,10 @@ function BudgetsContent() {
 
                                     <p
                                         className={`shrink-0 font-semibold ${overallPercentage > 100
-                                                ? "text-red-400"
-                                                : overallPercentage >= 80
-                                                    ? "text-amber-400"
-                                                    : "text-emerald-400"
+                                            ? "text-red-400"
+                                            : overallPercentage >= 80
+                                                ? "text-amber-400"
+                                                : "text-emerald-400"
                                             }`}
                                     >
                                         {overallPercentage.toFixed(0)}%
@@ -655,10 +663,10 @@ function BudgetsContent() {
                                 <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/5">
                                     <div
                                         className={`h-full rounded-full transition-all ${overallPercentage > 100
-                                                ? "bg-red-500"
-                                                : overallPercentage >= 80
-                                                    ? "bg-amber-500"
-                                                    : "bg-indigo-500"
+                                            ? "bg-red-500"
+                                            : overallPercentage >= 80
+                                                ? "bg-amber-500"
+                                                : "bg-indigo-500"
                                             }`}
                                         style={{
                                             width: `${Math.min(
@@ -1337,8 +1345,8 @@ function MobileNavItem({
             href={href}
             onClick={closeMenu}
             className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${active
-                    ? "bg-indigo-500/10 text-indigo-300"
-                    : "text-slate-400 hover:bg-white/5 hover:text-white"
+                ? "bg-indigo-500/10 text-indigo-300"
+                : "text-slate-400 hover:bg-white/5 hover:text-white"
                 }`}
         >
             {icon}
@@ -1388,10 +1396,10 @@ function BudgetCard({
                 <div className="flex min-w-0 items-center gap-3">
                     <div
                         className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${isOver
-                                ? "bg-red-500/10"
-                                : isWarning
-                                    ? "bg-amber-500/10"
-                                    : "bg-indigo-500/10"
+                            ? "bg-red-500/10"
+                            : isWarning
+                                ? "bg-amber-500/10"
+                                : "bg-indigo-500/10"
                             }`}
                     >
                         {isOver ? (
@@ -1484,10 +1492,10 @@ function BudgetCard({
                 <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/5">
                     <div
                         className={`h-full rounded-full transition-all ${isOver
-                                ? "bg-red-500"
-                                : isWarning
-                                    ? "bg-amber-500"
-                                    : "bg-indigo-500"
+                            ? "bg-red-500"
+                            : isWarning
+                                ? "bg-amber-500"
+                                : "bg-indigo-500"
                             }`}
                         style={{
                             width: `${progressWidth}%`,
@@ -1498,10 +1506,10 @@ function BudgetCard({
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                     <span
                         className={`text-xs font-medium ${isOver
-                                ? "text-red-400"
-                                : isWarning
-                                    ? "text-amber-400"
-                                    : "text-slate-500"
+                            ? "text-red-400"
+                            : isWarning
+                                ? "text-amber-400"
+                                : "text-slate-500"
                             }`}
                     >
                         {percentage.toFixed(0)}% used
@@ -1509,8 +1517,8 @@ function BudgetCard({
 
                     <span
                         className={`break-words text-right text-xs ${remaining < 0
-                                ? "text-red-400"
-                                : "text-slate-500"
+                            ? "text-red-400"
+                            : "text-slate-500"
                             }`}
                     >
                         {remaining >= 0
@@ -1595,8 +1603,8 @@ function NavItem({
         <Link
             href={href}
             className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${active
-                    ? "bg-indigo-500/10 text-indigo-300"
-                    : "text-slate-400 hover:bg-white/5 hover:text-white"
+                ? "bg-indigo-500/10 text-indigo-300"
+                : "text-slate-400 hover:bg-white/5 hover:text-white"
                 }`}
         >
             {icon}

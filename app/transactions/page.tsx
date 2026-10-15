@@ -1,6 +1,7 @@
 "use client";
 
 import {
+    useCallback,
     useEffect,
     useMemo,
     useState,
@@ -33,6 +34,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/app/components/AuthGuard";
 import AddTransaction from "@/app/components/AddTransaction";
+import { useRealtimeSync } from "@/lib/useRealtimeSync";
 
 type TransactionType = "income" | "expense";
 
@@ -126,7 +128,7 @@ function TransactionsContent() {
        LOAD TRANSACTIONS
     ===================================================== */
 
-    async function loadTransactions() {
+    const loadTransactions = useCallback(async () => {
         if (!user) return;
 
         setLoading(true);
@@ -152,13 +154,20 @@ function TransactionsContent() {
 
         setTransactions((data || []) as Transaction[]);
         setLoading(false);
-    }
+    }, [user]);
 
     useEffect(() => {
         if (user) {
             loadTransactions();
         }
-    }, [user]);
+    }, [user, loadTransactions]);
+
+    // Keep in sync across tabs
+    useRealtimeSync({
+        userId: user?.id,
+        tables: ["transactions"],
+        onRefresh: loadTransactions,
+    });
 
     /* =====================================================
        TOTALS
@@ -800,9 +809,9 @@ function TransactionsContent() {
                                                             <td className="px-5 py-5">
                                                                 <span
                                                                     className={`inline-block whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium ${transaction.type ===
-                                                                            "income"
-                                                                            ? "bg-emerald-500/10 text-emerald-400"
-                                                                            : "bg-red-500/10 text-red-400"
+                                                                        "income"
+                                                                        ? "bg-emerald-500/10 text-emerald-400"
+                                                                        : "bg-red-500/10 text-red-400"
                                                                         }`}
                                                                 >
                                                                     {transaction.type ===
@@ -816,9 +825,9 @@ function TransactionsContent() {
 
                                                             <td
                                                                 className={`whitespace-nowrap px-5 py-5 text-right font-semibold ${transaction.type ===
-                                                                        "income"
-                                                                        ? "text-emerald-400"
-                                                                        : "text-red-400"
+                                                                    "income"
+                                                                    ? "text-emerald-400"
+                                                                    : "text-red-400"
                                                                     }`}
                                                             >
                                                                 {transaction.type ===
@@ -1371,8 +1380,8 @@ function NavItem({
         <Link
             href={href}
             className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${active
-                    ? "bg-indigo-500/10 text-indigo-300"
-                    : "text-slate-400 hover:bg-white/5 hover:text-white"
+                ? "bg-indigo-500/10 text-indigo-300"
+                : "text-slate-400 hover:bg-white/5 hover:text-white"
                 }`}
         >
             <span className="shrink-0">
@@ -1410,8 +1419,8 @@ function MobileNavItem({
             href={href}
             onClick={onClick}
             className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-3 text-sm transition ${active
-                    ? "bg-indigo-500/10 text-indigo-300"
-                    : "text-slate-400 hover:bg-white/5 hover:text-white"
+                ? "bg-indigo-500/10 text-indigo-300"
+                : "text-slate-400 hover:bg-white/5 hover:text-white"
                 }`}
         >
             <span className="shrink-0">

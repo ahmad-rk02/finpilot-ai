@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
     AlertTriangle,
@@ -23,6 +23,7 @@ import {
 
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/app/components/AuthGuard";
+import { useRealtimeSync } from "@/lib/useRealtimeSync";
 
 type GoalType = {
     id: string;
@@ -92,7 +93,7 @@ function GoalsContent() {
        LOAD GOALS
     ===================================================== */
 
-    async function loadGoals(activeUserId: string) {
+    const loadGoals = useCallback(async (activeUserId: string) => {
         setLoading(true);
 
         const { data, error } = await supabase
@@ -114,13 +115,20 @@ function GoalsContent() {
 
         setGoals((data || []) as GoalType[]);
         setLoading(false);
-    }
+    }, []);
 
     useEffect(() => {
         if (userId) {
             loadGoals(userId);
         }
-    }, [userId]);
+    }, [userId, loadGoals]);
+
+    // Keep in sync across tabs
+    useRealtimeSync({
+        userId,
+        tables: ["goals"],
+        onRefresh: () => { if (userId) loadGoals(userId); },
+    });
 
     /* =====================================================
        SUMMARY
@@ -486,8 +494,8 @@ function GoalsContent() {
                                         }
                                     )}`}
                                     subtitle={`${goals.length} active goal${goals.length !== 1
-                                            ? "s"
-                                            : ""
+                                        ? "s"
+                                        : ""
                                         }`}
                                     icon={
                                         <Target
@@ -1203,8 +1211,8 @@ function NavItem({
         <Link
             href={href}
             className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${active
-                    ? "bg-indigo-500/10 text-indigo-300"
-                    : "text-slate-400 hover:bg-white/5 hover:text-white"
+                ? "bg-indigo-500/10 text-indigo-300"
+                : "text-slate-400 hover:bg-white/5 hover:text-white"
                 }`}
         >
             {icon}
@@ -1244,8 +1252,8 @@ function MobileNavItem({
             href={href}
             onClick={onClick}
             className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-3 text-sm transition ${active
-                    ? "bg-indigo-500/10 text-indigo-300"
-                    : "text-slate-400 hover:bg-white/5 hover:text-white"
+                ? "bg-indigo-500/10 text-indigo-300"
+                : "text-slate-400 hover:bg-white/5 hover:text-white"
                 }`}
         >
             {icon}

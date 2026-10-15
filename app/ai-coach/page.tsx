@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/app/components/AuthGuard";
+import { useRealtimeSync } from "@/lib/useRealtimeSync";
 import {
     ArrowUp,
     Bot,
@@ -293,6 +294,26 @@ function AICoachContent() {
             block: "end",
         });
     }, [messages, sending]);
+
+    // Sync chat messages across tabs (another tab sent/cleared messages)
+    useRealtimeSync({
+        userId,
+        tables: ["ai_chat_messages"],
+        onRefresh: () => {
+            if (userId && financialContext) {
+                loadChatHistory(userId, financialContext);
+            }
+        },
+    });
+
+    // Sync financial data across tabs (transactions/budgets/goals changed elsewhere)
+    useRealtimeSync({
+        userId,
+        tables: ["transactions", "budgets", "goals"],
+        onRefresh: () => {
+            loadFinancialData(userId ?? undefined);
+        },
+    });
 
     async function initializePage() {
         setLoading(true);
@@ -1740,14 +1761,14 @@ function QuickQuestionButton({
             onClick={onClick}
             disabled={disabled}
             className={`group flex min-w-0 items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] text-left transition-all duration-200 hover:border-indigo-500/30 hover:bg-indigo-500/[0.07] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 ${desktop
-                    ? "min-h-10 flex-1 px-2.5 py-2"
-                    : "min-h-11 px-2 py-2"
+                ? "min-h-10 flex-1 px-2.5 py-2"
+                : "min-h-11 px-2 py-2"
                 }`}
         >
             <span
                 className={`min-w-0 pr-1.5 leading-4 text-slate-400 transition group-hover:text-slate-200 ${desktop
-                        ? "line-clamp-1 text-[11px]"
-                        : "line-clamp-2 text-[10px]"
+                    ? "line-clamp-1 text-[11px]"
+                    : "line-clamp-2 text-[10px]"
                     }`}
             >
                 {question}
@@ -1755,8 +1776,8 @@ function QuickQuestionButton({
 
             <ChevronRight
                 className={`shrink-0 text-slate-600 transition group-hover:translate-x-0.5 group-hover:text-indigo-400 ${desktop
-                        ? "h-3.5 w-3.5"
-                        : "h-3 w-3"
+                    ? "h-3.5 w-3.5"
+                    : "h-3 w-3"
                     }`}
             />
         </button>
@@ -1778,8 +1799,8 @@ function NavItem({
         <Link
             href={href}
             className={`flex min-h-10 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${active
-                    ? "bg-indigo-500/10 text-indigo-300"
-                    : "text-slate-400 hover:bg-white/5 hover:text-white"
+                ? "bg-indigo-500/10 text-indigo-300"
+                : "text-slate-400 hover:bg-white/5 hover:text-white"
                 }`}
         >
             {icon || (
@@ -1806,8 +1827,8 @@ function MobileNavItem({
         <Link
             href={href}
             className={`min-h-9 shrink-0 rounded-xl border px-3 py-2 text-xs font-medium transition ${active
-                    ? "border-indigo-500/30 bg-indigo-500/15 text-indigo-300"
-                    : "border-white/10 bg-white/[0.025] text-slate-400 hover:bg-white/5 hover:text-white"
+                ? "border-indigo-500/30 bg-indigo-500/15 text-indigo-300"
+                : "border-white/10 bg-white/[0.025] text-slate-400 hover:bg-white/5 hover:text-white"
                 }`}
         >
             {label}

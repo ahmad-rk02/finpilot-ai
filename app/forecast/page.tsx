@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
     AlertTriangle,
@@ -22,6 +22,7 @@ import {
 
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/app/components/AuthGuard";
+import { useRealtimeSync } from "@/lib/useRealtimeSync";
 
 type Transaction = {
     id: string;
@@ -56,6 +57,7 @@ function ForecastContent() {
     const [budgets, setBudgets] = useState<Budget[]>([]);
     const [loading, setLoading] = useState(true);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [userId, setUserId] = useState<string | null>(null);
 
     /* =====================================================
        DATE INFORMATION
@@ -108,7 +110,7 @@ function ForecastContent() {
        LOAD DATA
     ===================================================== */
 
-    async function loadData() {
+    const loadData = useCallback(async () => {
         setLoading(true);
 
         try {
@@ -124,6 +126,8 @@ function ForecastContent() {
             if (!user) {
                 return;
             }
+
+            setUserId(user.id);
 
             const [
                 currentTransactionsResponse,
@@ -197,11 +201,18 @@ function ForecastContent() {
         } finally {
             setLoading(false);
         }
-    }
+    }, [dateInfo]);
 
     useEffect(() => {
         loadData();
-    }, []);
+    }, [loadData]);
+
+    // Keep in sync across tabs
+    useRealtimeSync({
+        userId,
+        tables: ["transactions", "budgets"],
+        onRefresh: loadData,
+    });
 
     /* =====================================================
        CURRENT MONTH INCOME
@@ -711,10 +722,10 @@ function ForecastContent() {
 
                                                 <span
                                                     className={`rounded-full px-3 py-1 text-xs font-medium ${confidence === "low"
-                                                            ? "bg-amber-500/10 text-amber-400"
-                                                            : confidence === "medium"
-                                                                ? "bg-indigo-500/10 text-indigo-300"
-                                                                : "bg-emerald-500/10 text-emerald-400"
+                                                        ? "bg-amber-500/10 text-amber-400"
+                                                        : confidence === "medium"
+                                                            ? "bg-indigo-500/10 text-indigo-300"
+                                                            : "bg-emerald-500/10 text-emerald-400"
                                                         }`}
                                                 >
                                                     {confidenceText}
@@ -847,8 +858,8 @@ function ForecastContent() {
 
                                             <p
                                                 className={`mt-1 break-words text-lg font-semibold ${income - forecast >= 0
-                                                        ? "text-emerald-400"
-                                                        : "text-red-400"
+                                                    ? "text-emerald-400"
+                                                    : "text-red-400"
                                                     }`}
                                             >
                                                 ₹
@@ -908,8 +919,8 @@ function ForecastContent() {
 
                                                         <p
                                                             className={`mt-1 break-words text-lg font-semibold ${forecast > totalBudget
-                                                                    ? "text-red-400"
-                                                                    : "text-emerald-400"
+                                                                ? "text-red-400"
+                                                                : "text-emerald-400"
                                                                 }`}
                                                         >
                                                             ₹
@@ -923,10 +934,10 @@ function ForecastContent() {
                                                 <div className="mt-6 h-3 overflow-hidden rounded-full bg-white/5">
                                                     <div
                                                         className={`h-full rounded-full transition-all ${forecast > totalBudget
-                                                                ? "bg-red-500"
-                                                                : projectedBudgetUsage >= 80
-                                                                    ? "bg-amber-500"
-                                                                    : "bg-indigo-500"
+                                                            ? "bg-red-500"
+                                                            : projectedBudgetUsage >= 80
+                                                                ? "bg-amber-500"
+                                                                : "bg-indigo-500"
                                                             }`}
                                                         style={{
                                                             width: `${Math.min(
@@ -954,8 +965,8 @@ function ForecastContent() {
 
                                                     <p
                                                         className={`mt-1 break-words font-medium ${budgetDifference < 0
-                                                                ? "text-red-400"
-                                                                : "text-emerald-400"
+                                                            ? "text-red-400"
+                                                            : "text-emerald-400"
                                                             }`}
                                                     >
                                                         {budgetDifference < 0
@@ -1021,8 +1032,8 @@ function ForecastContent() {
                                     ) : (
                                         <div
                                             className={`mt-6 min-h-0 space-y-5 ${categorySpending.length > 6
-                                                    ? "max-h-[45vh] overflow-y-auto overscroll-contain pr-2 [scrollbar-color:rgb(71_85_105)_transparent] [scrollbar-width:thin] sm:max-h-[50vh] lg:max-h-[360px]"
-                                                    : ""
+                                                ? "max-h-[45vh] overflow-y-auto overscroll-contain pr-2 [scrollbar-color:rgb(71_85_105)_transparent] [scrollbar-width:thin] sm:max-h-[50vh] lg:max-h-[360px]"
+                                                : ""
                                                 }`}
                                         >
                                             {categorySpending.map((item) => {
@@ -1146,8 +1157,8 @@ function NavItem({
             href={href}
             onClick={onClick}
             className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${active
-                    ? "bg-indigo-500/10 text-indigo-300"
-                    : "text-slate-400 hover:bg-white/5 hover:text-white"
+                ? "bg-indigo-500/10 text-indigo-300"
+                : "text-slate-400 hover:bg-white/5 hover:text-white"
                 }`}
         >
             {icon}

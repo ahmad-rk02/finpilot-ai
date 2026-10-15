@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import AuthGuard from "@/app/components/AuthGuard";
 import { supabase } from "@/lib/supabase";
+import { useRealtimeSync } from "@/lib/useRealtimeSync";
 
 const navigation = [
     {
@@ -307,6 +308,8 @@ function SettingsContent() {
     const [deletingAccount, setDeletingAccount] = useState(false);
     const [deleteError, setDeleteError] = useState("");
 
+    const [userId, setUserId] = useState<string | null>(null);
+
     useEffect(() => {
         let mounted = true;
 
@@ -328,6 +331,8 @@ function SettingsContent() {
                 if (!mounted || !user) {
                     return;
                 }
+
+                setUserId(user.id);
 
                 const name =
                     user.user_metadata?.full_name ||
@@ -421,6 +426,30 @@ function SettingsContent() {
             mounted = false;
         };
     }, []);
+
+    // Keep preferences in sync across tabs
+    useRealtimeSync({
+        userId,
+        tables: ["user_preferences"],
+        onRefresh: () => {
+            // Re-trigger the settings load by bumping a counter would be complex;
+            // instead just re-fetch preferences directly
+            if (!userId) return;
+            supabase.auth.getSession().then(({ data: { session } }) => {
+                if (!session?.access_token) return;
+                fetch("/api/preferences", {
+                    method: "GET",
+                    headers: { Authorization: `Bearer ${session.access_token}` },
+                })
+                    .then((r) => r.json())
+                    .then((result) => {
+                        setAiInsights(result.preferences?.ai_insights_enabled ?? true);
+                        setNotifications(result.preferences?.email_notifications_enabled ?? false);
+                    })
+                    .catch(() => {/* silent — preference sync failure is non-critical */ });
+            });
+        },
+    });
 
     useEffect(() => {
         if (!mobileMenuOpen) {

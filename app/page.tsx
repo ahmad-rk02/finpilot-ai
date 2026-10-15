@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -25,6 +25,7 @@ import {
 
 import { supabase } from "@/lib/supabase";
 import LandingPage from "@/app/components/LandingPage";
+import { useRealtimeSync } from "@/lib/useRealtimeSync";
 
 type User = {
   id: string;
@@ -328,70 +329,77 @@ export default function HomePage() {
     };
   }, []);
 
+  const loadDashboardData = useCallback(async () => {
+    if (!user) return;
+    setDataLoading(true);
+
+    try {
+      const [transactionsResult, goalsResult] =
+        await Promise.all([
+          supabase
+            .from("transactions")
+            .select(
+              "id, description, category, amount, type, transaction_date"
+            )
+            .eq("user_id", user.id)
+            .order("transaction_date", { ascending: false })
+            .order("created_at", { ascending: false })
+            .limit(100),
+
+          supabase
+            .from("goals")
+            .select(
+              "id, name, target_amount, saved_amount, target_date"
+            )
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false }),
+        ]);
+
+      if (transactionsResult.error) {
+        console.error(
+          "Failed to load transactions:",
+          transactionsResult.error
+        );
+      } else {
+        setTransactions(
+          (transactionsResult.data || []) as Transaction[]
+        );
+      }
+
+      if (goalsResult.error) {
+        console.error(
+          "Failed to load goals:",
+          goalsResult.error
+        );
+        setGoals([]);
+      } else {
+        setGoals((goalsResult.data || []) as Goal[]);
+      }
+    } catch (error) {
+      console.error(
+        "Dashboard data loading failed:",
+        error
+      );
+    } finally {
+      setDataLoading(false);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!user) {
       setTransactions([]);
       setGoals([]);
       return;
     }
-
-    const loadDashboardData = async () => {
-      setDataLoading(true);
-
-      try {
-        const [transactionsResult, goalsResult] =
-          await Promise.all([
-            supabase
-              .from("transactions")
-              .select(
-                "id, description, category, amount, type, transaction_date"
-              )
-              .eq("user_id", user.id)
-              .order("transaction_date", { ascending: false })
-              .order("created_at", { ascending: false })
-              .limit(100),
-
-            supabase
-              .from("goals")
-              .select(
-                "id, name, target_amount, saved_amount, target_date"
-              )
-              .eq("user_id", user.id)
-              .order("created_at", { ascending: false }),
-          ]);
-
-        if (transactionsResult.error) {
-          console.error(
-            "Failed to load transactions:",
-            transactionsResult.error
-          );
-        } else {
-          setTransactions(
-            (transactionsResult.data || []) as Transaction[]
-          );
-        }
-
-        if (goalsResult.error) {
-          console.error(
-            "Failed to load goals:",
-            goalsResult.error
-          );
-          setGoals([]);
-        } else {
-          setGoals((goalsResult.data || []) as Goal[]);
-        }
-      } catch (error) {
-        console.error(
-          "Dashboard data loading failed:",
-          error
-        );
-      } finally {
-        setDataLoading(false);
-      }
-    };
-
     loadDashboardData();
-  }, [user]);
+  }, [user, loadDashboardData]);
+
+  // Keep dashboard in sync across all open tabs
+  useRealtimeSync({
+    userId: user?.id,
+    tables: ["transactions", "goals"],
+    onRefresh: loadDashboardData,
+  });
 
   const financialSummary = useMemo(() => {
     const income = transactions
