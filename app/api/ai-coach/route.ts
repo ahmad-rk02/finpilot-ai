@@ -451,6 +451,48 @@ function getFinPilotFallback(
 
     const month = context?.month ? `for ${context.month}` : "";
 
+    /* ----------------------------------------------------------
+       Advice / open-ended questions that need a real AI model.
+       The fallback has no knowledge base — tell the user clearly
+       instead of dumping irrelevant financial stats.
+    ---------------------------------------------------------- */
+    const needsAIAdvice =
+        lowerQuestion.includes("earn more") ||
+        lowerQuestion.includes("make more money") ||
+        lowerQuestion.includes("increase income") ||
+        lowerQuestion.includes("side hustle") ||
+        lowerQuestion.includes("invest") ||
+        lowerQuestion.includes("investment") ||
+        lowerQuestion.includes("stock") ||
+        lowerQuestion.includes("crypto") ||
+        lowerQuestion.includes("how to") ||
+        lowerQuestion.includes("advice") ||
+        lowerQuestion.includes("tip") ||
+        lowerQuestion.includes("suggest") ||
+        lowerQuestion.includes("recommend") ||
+        lowerQuestion.includes("should i") ||
+        lowerQuestion.includes("what should") ||
+        lowerQuestion.includes("career") ||
+        lowerQuestion.includes("job") ||
+        lowerQuestion.includes("salary") ||
+        lowerQuestion.includes("freelance") ||
+        lowerQuestion.includes("passive income");
+
+    if (needsAIAdvice) {
+        return `
+That's a great question, but it requires personalized advice that goes beyond your transaction data — and the AI service (Gemini / OpenRouter) is currently unavailable.
+
+Here is what I can tell you from your current numbers ${month}:
+
+• Income: ₹${totalIncome.toFixed(2)}
+• Expenses: ₹${totalExpense.toFixed(2)}
+• Net balance: ₹${balance.toFixed(2)}
+${budgetUsagePercent > 0 ? `• Budget used: ${budgetUsagePercent.toFixed(1)}% of ₹${totalBudget.toFixed(2)}` : ""}
+
+For detailed advice on earning more, investing, or career growth, please try again in a moment when the AI service is back online — or check a trusted resource like your bank's financial advisor.
+`.trim();
+    }
+
     if (
         lowerQuestion.includes("budget") &&
         totalBudget > 0
